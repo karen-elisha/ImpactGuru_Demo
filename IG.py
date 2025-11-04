@@ -29,7 +29,8 @@ if choice == "📁 Set up a Campaign":
                 "goal": goal,
                 "raised": 0,
                 "verified": True,
-                "donors": []
+                "donors": [],
+                "active": True  # ✅ Track if campaign is still accepting donations
             }
             st.success(f"✅ Campaign '{campaign_name}' verified and created successfully!")
         else:
@@ -41,22 +42,37 @@ elif choice == "💖 Donate to a Campaign":
 
     if st.session_state.campaigns:
         selected = st.selectbox("Select a Verified Campaign", list(st.session_state.campaigns.keys()))
-        donor = st.text_input("Your Name")
-        amount = st.number_input("Donation Amount (₹)", min_value=100)
-
-        if st.button("Donate"):
-            if donor and amount > 0:
-                campaign = st.session_state.campaigns[selected]
-                campaign["raised"] += amount
-                campaign["donors"].append((donor, amount))
-                st.success(f"🎉 Thank you {donor}! You donated ₹{amount} to '{selected}'.")
-            else:
-                st.warning("Please enter your name and donation amount.")
-
-        # Show campaign progress
         campaign = st.session_state.campaigns[selected]
-        st.write(f"**Goal:** ₹{campaign['goal']} | **Raised:** ₹{campaign['raised']}")
-        st.progress(min(campaign["raised"] / campaign["goal"], 1.0))
+
+        # Check if campaign is still active
+        if campaign["active"]:
+            donor = st.text_input("Your Name")
+            amount = st.number_input("Donation Amount (₹)", min_value=100)
+
+            if st.button("Donate"):
+                if donor and amount > 0:
+                    if campaign["raised"] + amount <= campaign["goal"]:
+                        campaign["raised"] += amount
+                        campaign["donors"].append((donor, amount))
+                        st.success(f"🎉 Thank you {donor}! You donated ₹{amount} to '{selected}'.")
+                    else:
+                        # If this donation exceeds the goal
+                        st.warning("🚫 This campaign has already reached its goal. Donations are closed.")
+                        campaign["active"] = False
+                else:
+                    st.warning("Please enter your name and donation amount.")
+
+            # Show campaign progress
+            st.write(f"**Goal:** ₹{campaign['goal']} | **Raised:** ₹{campaign['raised']}")
+            st.progress(min(campaign["raised"] / campaign["goal"], 1.0))
+
+            # If goal reached
+            if campaign["raised"] >= campaign["goal"]:
+                campaign["active"] = False
+                st.success(f"🎯 Goal achieved! ₹{campaign['raised']} raised successfully.")
+                st.info(f"💰 Funds are being transferred securely to beneficiary **{campaign['creator']}**.")
+        else:
+            st.warning(f"🚫 Campaign '{selected}' has ended. Goal achieved or donations closed.")
 
         # Show donor list
         st.subheader("💞 Donor List")
@@ -65,5 +81,7 @@ elif choice == "💖 Donate to a Campaign":
                 st.write(f"- {d} donated ₹{a}")
         else:
             st.write("No donors yet. Be the first to contribute!")
+
     else:
         st.info("No verified campaigns available. Please create one first.")
+
